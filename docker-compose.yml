@@ -1,0 +1,50 @@
+services:
+  db:
+    build: ./database
+    image: ${DOCKERHUB_USER:-local}/todo-database:latest
+    environment:
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-todo123}
+      POSTGRES_DB: tododb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo -d tododb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: ${DOCKERHUB_USER:-local}/todo-backend:latest
+    environment:
+      DB_HOST: db
+      DB_USER: todo
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-todo123}
+      DB_NAME: tododb
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: ${DOCKERHUB_USER:-local}/todo-frontend:latest
+    restart: unless-stopped
+
+  loadbalancer:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

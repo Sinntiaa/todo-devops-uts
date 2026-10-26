@@ -1,0 +1,59 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # CI: cek sintaks + automated test
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependency
+        run: npm install
+        working-directory: backend
+      - name: Cek sintaks
+        run: npm run lint
+        working-directory: backend
+      - name: Jalankan test
+        run: npm test
+        working-directory: backend
+
+  # build 3 image lalu push ke Docker Hub
+  build-push:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [frontend, backend, database]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-${{ matrix.service }}:latest
+
+  # CD: jalan di komputer sendiri (self-hosted runner), pull image dari Docker Hub lalu jalankan
+  deploy:
+    needs: build-push
+    runs-on: self-hosted
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull image terbaru
+        run: docker compose pull
+      - name: Jalankan container
+        run: docker compose up -d
