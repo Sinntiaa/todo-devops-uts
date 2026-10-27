@@ -4,7 +4,7 @@ Tech stack: HTML/JS + Nginx 1.27 (FE), Node.js 20 + Express 4.21 (BE), PostgreSQ
 
 ## Jalankan lokal
     docker compose up -d --build
-    buka http://localhost:8080
+    buka http://localhost:9090
 
 Refresh beberapa kali: teks "Dilayani backend container" akan berganti-ganti = load balancing jalan.
 
